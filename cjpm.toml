@@ -1,0 +1,28 @@
+[package]
+  cjc-version = "1.0.5"
+  compile-option = "-O2 --int-overflow=wrapping"
+  description = ""
+  name = "restest"
+  output-type = "executable"
+  src-dir = "src"
+  target-dir = ""
+  version = "1.0.0"
+
+[dependencies]
+  test_test = { path = "./test-test", output-type = "static" }
+
+  [package.package_configuration]
+
+[package.package-configuration."restest.deps"]
+  output-type = "dynamic"
+
+[package.package-configuration.restest]
+  compile-option = "--link-options \"-Ltarget/release/test_test -ltest_test\""
+
+[package.package-configuration."restest.macros"]
+  compile-option = "--link-options \"-Ltarget/release/restest -lrestest.deps\""
+
+  [package.scripts]
+
+[target.x86_64-unknown-linux-gnu.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}"]

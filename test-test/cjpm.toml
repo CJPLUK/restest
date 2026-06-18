@@ -1,0 +1,17 @@
+[package]
+  cjc-version = "1.0.5"
+  compile-option = "-g --int-overflow=wrapping"
+  description = ""
+  name = "test_test"
+  output-type = "dynamic"
+  src-dir = "src"
+  target-dir = ""
+  version = "1.0.0"
+  [package.package_configuration]
+  [package.scripts]
+
+[target.x86_64-unknown-linux-gnu.bin-dependencies]
+  path-option = [
+    "${CANGJIE_STDX_PATH}",
+    "/home/james/cangjie-resumptions-testing/target/release/cangjie_experiments"
+  ]
