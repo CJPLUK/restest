@@ -1,7 +1,9 @@
 package test_test
 
+import std.deriving.Derive
 import std.unittest.prop_test.{Arbitrary, Generator, Generators, RandomSource}
 
+@Derive[ToString where A <: ToString]
 public enum SLL<A> {
     | Nil
     | Cons(A, SLL<A>)

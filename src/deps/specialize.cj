@@ -99,6 +99,38 @@ public func typeAnnotationContainsUnqualifiedName(typeAnnotation: TypeAnnotation
     }
 }
 
+public func typeAnnotationContainsFuncType(typeAnnotation: Option<TypeAnnotation>): Bool {
+    if (let Some(ty) <- typeAnnotation) {
+        return typeAnnotationContainsFuncType(ty)
+    }
+    false
+}
+
+public func typeAnnotationContainsFuncType(typeAnnotation: TypeAnnotation): Bool {
+    match (typeAnnotation) {
+        case ty: CompositeType =>
+            for (typeArgument in ty.typeArguments) {
+                if (typeAnnotationContainsFuncType(typeArgument)) {
+                    return true
+                }
+            }
+            false
+        case ty: FuncType => true
+        case ty: PrefixType => typeAnnotationContainsFuncType(ty.base)
+        case _: AtomicType => false
+        case ty: ParenType => typeAnnotationContainsFuncType(ty.subType)
+        case ty: TupleType =>
+            for (element in ty.elements) {
+                if (typeAnnotationContainsFuncType(element)) {
+                    return true
+                }
+            }
+            false
+        case ty: VArrayType => typeAnnotationContainsFuncType(ty.elementType)
+        case _ => false
+    }
+}
+
 public func substituteTypeAnnotation(typeAnnotation: TypeAnnotation,
     substitutions: Array<TypeSubstitution>): TypeAnnotation {
     match (typeAnnotation) {

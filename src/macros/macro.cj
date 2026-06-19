@@ -30,27 +30,8 @@ class GenerateImpl {
         CloneType(arbitraryLeafTypes[RandomIndex(arbitraryLeafTypes.size)])
     }
 
-    func DefaultInferenceType(): TypeAnnotation {
-        AtomicType(AtomicTypeKind.Int64Type)
-    }
-
-    func MakeRandomArbitraryType(depth: Int64): TypeAnnotation {
-        if (depth <= 0) {
-            return MakeRandomArbitraryLeafType()
-        }
-
-        match (RandomIndex(4)) {
-            case 0 => CompositeType("Option", [], [MakeRandomArbitraryType(depth - 1)])
-            case 1 => CompositeType("Array", [], [MakeRandomArbitraryType(depth - 1)])
-            case _ => MakeRandomArbitraryLeafType()  // probability 1/2
-        }
-    }
-
-    func MakeRandomTypeSubstitution(command: CommandInfo, genericParam: GenericParamInfo): TypeSubstitution {
-        if (typeAnnotationContainsUnqualifiedName(command.returnType, genericParam.name)) {
-            return TypeSubstitution(genericParam.name, DefaultInferenceType())
-        }
-        TypeSubstitution(genericParam.name, MakeRandomArbitraryType(2))
+    func MakeRandomTypeSubstitution(_: CommandInfo, genericParam: GenericParamInfo): TypeSubstitution {
+        TypeSubstitution(genericParam.name, MakeRandomArbitraryLeafType())
     }
 
     func MakeRandomTypeSubstitutions(command: CommandInfo): Array<TypeSubstitution> {
@@ -73,17 +54,28 @@ class GenerateImpl {
             if (param.paramName == "this") {
                 return false
             }
-
-            match (param.paramType) {
-                case _: FuncType => return false
-                case _ => ()
-            }
         }
         true
     }
 
     func CanCallCommand(command: CommandInfo): Bool {
-        !(command.isConstructor || command.isInstanceMethod || command.isStaticMethod)
+        if (command.isConstructor || command.isInstanceMethod || command.isStaticMethod) {
+            return false
+        }
+
+        for (param in command.params) {
+            if (typeAnnotationContainsFuncType(param.paramType)) {
+                return false
+            }
+        }
+        if (typeAnnotationContainsFuncType(command.returnType)) {
+            return false
+        }
+        true
+    }
+
+    func RandomCommandIndex(commandCount: Int64): Int64 {
+        rand.nextInt64(commandCount)
     }
 
     public func MakeRandomCall(command: CommandInfo): Option<Tokens> {
@@ -106,12 +98,75 @@ class GenerateImpl {
         }
         Option<Tokens>.Some(Token(IDENTIFIER, command.name) + quote(($(args))))
     }
+
+    public func MakeRandomCall(commands: ArrayList<CommandInfo>): Option<Tokens> {
+        if (commands.size == 0) {
+            return None
+        }
+
+        let start = RandomCommandIndex(commands.size)
+        var offset: Int64 = 0
+        while (offset < commands.size) {
+            let index = (start + offset) % commands.size
+            if (let Some(callTokens) <- MakeRandomCall(commands[index])) {
+                return Option<Tokens>.Some(callTokens)
+            }
+            offset += 1
+        }
+        None
+    }
+}
+
+func varExpr(name: Token): Expr {
+    parseExpr(Tokens([name]))
+}
+
+func makeGeneratedTuple(names: ArrayList<Token>): Expr {
+    if (names.size == 0) {
+        return parseExpr(quote(()))
+    }
+
+    if (names.size == 1) {
+        return varExpr(names[0])
+    }
+
+    let tuple = TupleLiteral()
+    let elements = ArrayList<Expr>()
+    for (name in names) {
+        elements.add(varExpr(name))
+    }
+    tuple.elements = elements
+    tuple
+}
+
+func parseGenerateNames(input: Tokens): ArrayList<Token> {
+    if (input.size < 2 || input[0].kind != LSQUARE || input[input.size - 1].kind != RSQUARE) {
+        throw Exception("@Generate expects an array literal of variable names.")
+    }
+
+    let names = ArrayList<Token>()
+    var index: Int64 = 1
+    let end: Int64 = input.size - 1
+    while (index < end) {
+        let name = input[index]
+        if (name.kind != IDENTIFIER) {
+            throw Exception("@Generate expects identifiers inside the array literal.")
+        }
+        names.add(Token(IDENTIFIER, name.value))
+        index += 1
+        if (index == end) {
+            break
+        }
+        if (input[index].kind != COMMA) {
+            throw Exception("@Generate expects comma-separated variable names.")
+        }
+        index += 1
+    }
+    names
 }
 
 public macro Generate(input: Tokens): Tokens {
-    if (input.size != 0) {
-        throw Exception("@Generate expects no arguments.")
-    }
+    let names = parseGenerateNames(input)
 
     let outcome: ParseOutcome = parsePackage("./test-test")
     if (outcome.manifest.isNone()) {
@@ -121,10 +176,15 @@ public macro Generate(input: Tokens): Tokens {
 
     let manifest: Manifest = outcome.manifest.getOrThrow()
     let generateImpl = GenerateImpl(Random())
-    for (command in manifest.commands) {
-        if (let Some(callTokens) <- generateImpl.MakeRandomCall(command)) {
-            return callTokens
+
+    let block = Block()
+    for (name in names) {
+        if (let Some(callTokens) <- generateImpl.MakeRandomCall(manifest.commands)) {
+            block.nodes.add(parseDecl(quote(let $name = $callTokens)))
+        } else {
+            throw Exception("@Generate could not find any generatable command.")
         }
     }
-    Tokens()
+    block.nodes.add(makeGeneratedTuple(names))
+    block.toTokens()
 }
