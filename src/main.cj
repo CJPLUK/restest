@@ -4,7 +4,7 @@ import restest.macros.Generate
 import test_test.*
 
 main() {
-    @Generate([a, b, c])
+    @Generate(a b c)
     println(a)
     println(b)
     println(c)

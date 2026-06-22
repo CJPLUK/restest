@@ -117,57 +117,17 @@ class GenerateImpl {
     }
 }
 
-func varExpr(name: Token): Expr {
-    parseExpr(Tokens([name]))
-}
-
-func makeGeneratedTuple(names: ArrayList<Token>): Expr {
-    if (names.size == 0) {
-        return parseExpr(quote(()))
-    }
-
-    if (names.size == 1) {
-        return varExpr(names[0])
-    }
-
+func makeGeneratedTuple(names: Tokens): Expr {
     let tuple = TupleLiteral()
     let elements = ArrayList<Expr>()
     for (name in names) {
-        elements.add(varExpr(name))
+        elements.add(RefExpr(Tokens(name)))
     }
     tuple.elements = elements
     tuple
 }
 
-func parseGenerateNames(input: Tokens): ArrayList<Token> {
-    if (input.size < 2 || input[0].kind != LSQUARE || input[input.size - 1].kind != RSQUARE) {
-        throw Exception("@Generate expects an array literal of variable names.")
-    }
-
-    let names = ArrayList<Token>()
-    var index: Int64 = 1
-    let end: Int64 = input.size - 1
-    while (index < end) {
-        let name = input[index]
-        if (name.kind != IDENTIFIER) {
-            throw Exception("@Generate expects identifiers inside the array literal.")
-        }
-        names.add(Token(IDENTIFIER, name.value))
-        index += 1
-        if (index == end) {
-            break
-        }
-        if (input[index].kind != COMMA) {
-            throw Exception("@Generate expects comma-separated variable names.")
-        }
-        index += 1
-    }
-    names
-}
-
 public macro Generate(input: Tokens): Tokens {
-    let names = parseGenerateNames(input)
-
     let outcome: ParseOutcome = parsePackage("./test-test")
     if (outcome.manifest.isNone()) {
         println(outcome.errorMessage)
@@ -178,13 +138,13 @@ public macro Generate(input: Tokens): Tokens {
     let generateImpl = GenerateImpl(Random())
 
     let block = Block()
-    for (name in names) {
+    for (name in input) {
         if (let Some(callTokens) <- generateImpl.MakeRandomCall(manifest.commands)) {
             block.nodes.add(parseDecl(quote(let $name = $callTokens)))
         } else {
             throw Exception("@Generate could not find any generatable command.")
         }
     }
-    block.nodes.add(makeGeneratedTuple(names))
+    block.nodes.add(makeGeneratedTuple(input))
     block.toTokens()
 }
