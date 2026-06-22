@@ -184,6 +184,7 @@ public macro Generate(input: Tokens): Tokens {
             throw Exception("@Generate could not find any generatable command.")
         }
     }
-    block.nodes.add(makeGeneratedTuple(input))
+    let tupleExpr = makeGeneratedTuple(input)
+    block.nodes.add(parseDecl(quote(let _ = $tupleExpr)))
     block.toTokens()
 }
