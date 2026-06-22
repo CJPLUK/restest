@@ -6,6 +6,17 @@ import std.random.*
 import stdx.syntax.{ AtomicType, AtomicTypeKind, CompositeType, TypeAnnotation }
 import restest.deps.*
 
+struct WithType<T> {
+    public WithType(public let value: T, public let typeAnnotation: TypeAnnotation) {}
+
+    public func map<U>(f: (T) -> U): WithType<U> {
+        WithType(f(value), typeAnnotation)
+    }
+}
+
+type GeneratedBinding = WithType<Token>
+type GeneratedCall = WithType<Tokens>
+
 class GenerateImpl {
     public GenerateImpl(private let rand: Random) {}
 
@@ -46,6 +57,30 @@ class GenerateImpl {
         parseExpr(quote(arbitraryValue<$(ty.toTokens())>()))
     }
 
+    func TypeKey(typeAnnotation: TypeAnnotation): String {
+        typeAnnotation.toTokens().toString()
+    }
+
+    func FindMatchingBindings(ty: TypeAnnotation, previousBindings: ArrayList<GeneratedBinding>): ArrayList<GeneratedBinding> {
+        let matches = ArrayList<GeneratedBinding>()
+        let key = TypeKey(ty)
+        for (binding in previousBindings) {
+            if (TypeKey(binding.typeAnnotation) == key) {
+                matches.add(binding)
+            }
+        }
+        matches
+    }
+
+    func MakeRandomArgument(ty: TypeAnnotation, previousBindings: ArrayList<GeneratedBinding>): Expr {
+        let matches = FindMatchingBindings(ty, previousBindings)
+        if (matches.size > 0 && RandomIndex(2) == 0) {
+            let binding = matches[RandomIndex(matches.size)]
+            return RefExpr(Tokens(binding.value))
+        }
+        MakeRandomArgument(ty)
+    }
+
     func CanGenerateCall(specialized: SpecializedCommandSignature): Bool {
         if (specialized.returnType.isNone()) {
             return false
@@ -78,7 +113,7 @@ class GenerateImpl {
         rand.nextInt64(commandCount)
     }
 
-    public func MakeRandomCall(command: CommandInfo): Option<Tokens> {
+    public func MakeRandomCall(command: CommandInfo, previousBindings: ArrayList<GeneratedBinding>): Option<GeneratedCall> {
         if (!CanCallCommand(command)) {
             return None
         }
@@ -93,13 +128,14 @@ class GenerateImpl {
         let args = ArrayList<Argument>()
         for (param in specialized.params) {
             let arg = Argument()
-            arg.expr = MakeRandomArgument(param.paramType)
+            arg.expr = MakeRandomArgument(param.paramType, previousBindings)
             args.add(arg)
         }
-        Option<Tokens>.Some(Token(IDENTIFIER, command.name) + quote(($(args))))
+        Some(GeneratedCall(Token(IDENTIFIER, command.name) + quote(($(args))),
+            specialized.returnType.getOrThrow()))
     }
 
-    public func MakeRandomCall(commands: ArrayList<CommandInfo>): Option<Tokens> {
+    public func MakeRandomCall(commands: ArrayList<CommandInfo>, previousBindings: ArrayList<GeneratedBinding>): Option<GeneratedCall> {
         if (commands.size == 0) {
             return None
         }
@@ -108,8 +144,9 @@ class GenerateImpl {
         var offset: Int64 = 0
         while (offset < commands.size) {
             let index = (start + offset) % commands.size
-            if (let Some(callTokens) <- MakeRandomCall(commands[index])) {
-                return Option<Tokens>.Some(callTokens)
+            let maybeCall = MakeRandomCall(commands[index], previousBindings)
+            if (maybeCall.isSome()) {
+                return maybeCall
             }
             offset += 1
         }
@@ -136,11 +173,13 @@ public macro Generate(input: Tokens): Tokens {
 
     let manifest: Manifest = outcome.manifest.getOrThrow()
     let generateImpl = GenerateImpl(Random())
+    let previousBindings = ArrayList<GeneratedBinding>()
 
     let block = Block()
     for (name in input) {
-        if (let Some(callTokens) <- generateImpl.MakeRandomCall(manifest.commands)) {
-            block.nodes.add(parseDecl(quote(let $name = $callTokens)))
+        if (let Some(call) <- generateImpl.MakeRandomCall(manifest.commands, previousBindings)) {
+            block.nodes.add(parseDecl(quote(let $name = $(call.value))))
+            previousBindings.add(GeneratedBinding(name, call.typeAnnotation))
         } else {
             throw Exception("@Generate could not find any generatable command.")
         }
