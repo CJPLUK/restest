@@ -283,23 +283,11 @@ func hasErrorDiagnostics(result: ParsingResult<SourceFile>): Bool {
 
 // Resolve directory to scan: if package root has src/ subdir, use it; else use path as-is.
 // Relies on std.fs FileInfo.path.fileName being the directory entry name (e.g. "src").
-func _resolveSourceDir(sourcePath: String): String {
-    try {
-        let entries: Array<FileInfo> = Directory.readFrom(sourcePath)
-        for (entry in entries) {
-            if (entry.path.fileName == "src" && entry.isDirectory()) {
-                return sourcePath + "/src"
-            }
-        }
-    } catch (_) { }
-    sourcePath
-}
-
 // Parse package at given path (directory containing .cj files, or package root with src/).
 // Returns ParseOutcome with manifest on success, or errorMessage on failure (invalid path, read error, or parse failure).
 public func parsePackage(sourcePath: String): ParseOutcome {
     try {
-        let scanDir: String = _resolveSourceDir(sourcePath)
+        let scanDir: String = sourcePath + "/src"
         let cjPaths: ArrayList<Path> = collectCjFilesUnder(scanDir)
         let packageName: ArrayList<String> = ArrayList<String>()
         let commands: ArrayList<CommandInfo> = ArrayList<CommandInfo>()
