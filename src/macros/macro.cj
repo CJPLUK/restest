@@ -4,6 +4,20 @@ import std.ast.*
 import std.collection.*
 import std.random.*
 import stdx.syntax.{ AtomicType, AtomicTypeKind, CompositeType, TypeAnnotation }
+import stdx.syntax.Argument as StdxArgument
+import stdx.syntax.Block as StdxBlock
+import stdx.syntax.CallExpr as StdxCallExpr
+import stdx.syntax.Expr as StdxExpr
+import stdx.syntax.FuncDecl as StdxFuncDecl
+import stdx.syntax.FuncKind as StdxFuncKind
+import stdx.syntax.FuncParam as StdxFuncParam
+import stdx.syntax.FuncType as StdxFuncType
+import stdx.syntax.GenericParam as StdxGenericParam
+import stdx.syntax.MemberAccess as StdxMemberAccess
+import stdx.syntax.Parameter as StdxParameter
+import stdx.syntax.ParameterList as StdxParameterList
+import stdx.syntax.SymbolRef as StdxSymbolRef
+import stdx.syntax.SyntaxTreeNode as StdxSyntaxTreeNode
 import restest.deps.*
 
 struct WithType<T> {
@@ -94,15 +108,6 @@ class GenerateImpl {
     }
 
     func CanCallCommand(command: CommandInfo): Bool {
-        if (command.isConstructor || command.isInstanceMethod || command.isStaticMethod) {
-            return false
-        }
-
-        for (param in command.params) {
-            if (typeAnnotationContainsFuncType(param.paramType)) {
-                return false
-            }
-        }
         if (typeAnnotationContainsFuncType(command.returnType)) {
             return false
         }
@@ -164,6 +169,82 @@ func makeGeneratedTuple(names: Tokens): Expr {
     tuple
 }
 
+func wrapFunctionParamType(typeAnnotation: TypeAnnotation): Option<TypeAnnotation> {
+    match (typeAnnotation) {
+        case funcType: StdxFuncType =>
+            let typeArguments = ArrayList<TypeAnnotation>()
+            for (paramType in funcType.paramTypes) {
+                typeArguments.add(paramType)
+            }
+            typeArguments.add(funcType.retType)
+            match (funcType.paramTypes.size) {
+                case 0 => Some(CompositeType("Func0", [], typeArguments.toArray()))
+                case 1 => Some(CompositeType("Func1", [], typeArguments.toArray()))
+                case 2 => Some(CompositeType("Func2", [], typeArguments.toArray()))
+                case _ => None
+            }
+        case _ => Some(typeAnnotation)
+    }
+}
+
+func libToWrappers(commands: ArrayList<CommandInfo>): (ArrayList<CommandInfo>, ArrayList<Node>) {
+    let wrappedCommands = ArrayList<CommandInfo>()
+    let bindings = ArrayList<Node>()
+    for (command in commands) {
+        if (command.isConstructor || command.isInstanceMethod || command.isStaticMethod) {
+            continue
+        }
+        let wrappedName = "restest__" + command.name
+        let wrappedParams = ArrayList<ParamInfo>(command.params.size)
+        let funcParams = ArrayList<StdxParameter>(command.params.size)
+        let callArgs = ArrayList<StdxArgument>(command.params.size)
+        var supported = true
+        for (param in command.params) {
+            let wrappedType = wrapFunctionParamType(param.paramType)
+            if (wrappedType.isNone()) {
+                supported = false
+                break
+            }
+
+            let paramType = wrappedType.getOrThrow()
+            wrappedParams.add(ParamInfo(param.paramName, paramType))
+            let funcParam = StdxFuncParam(None, None, param.paramName, paramType)
+            funcParams.add(funcParam)
+
+            let argValue: StdxExpr = match (param.paramType) {
+                case _: StdxFuncType =>
+                    StdxMemberAccess(StdxSymbolRef(param.paramName, []), StdxSymbolRef("call", []))
+                case _ => StdxSymbolRef(param.paramName, [])
+            }
+            let arg = StdxArgument(None, false, argValue)
+            callArgs.add(arg)
+        }
+
+        if (!supported) {
+            continue
+        }
+
+        let wrappedCommand = CommandInfo(wrappedName, command.genericParams, command.isConstructor, command.className,
+            wrappedParams, command.returnType, command.returnIsRef, command.isInstanceMethod,
+            command.isStaticMethod, command.packagePath)
+        wrappedCommands.add(wrappedCommand)
+
+        let genericParams = ArrayList<StdxGenericParam>(command.genericParams.size)
+        for (genericParam in command.genericParams) {
+            genericParams.add(genericParam.declaration)
+        }
+
+        let syntaxCall = StdxCallExpr(StdxSymbolRef(command.name, []), callArgs.toArray())
+        let syntaxNodes = ArrayList<StdxSyntaxTreeNode>()
+        syntaxNodes.add(syntaxCall)
+        let syntaxBlock = StdxBlock(syntaxNodes.toArray())
+        let syntaxWrapper = StdxFuncDecl(Some(syntaxBlock), None, genericParams.toArray(), StdxFuncKind.Normal,
+            wrappedName, StdxParameterList(funcParams.toArray()), command.returnType)
+        bindings.add(parseDecl(syntaxWrapper.toTokens()))
+    }
+    (wrappedCommands, bindings)
+}
+
 public macro Generate(input: Tokens): Tokens {
     let outcome: ParseOutcome = parsePackage("./test-test")
     if (outcome.manifest.isNone()) {
@@ -172,12 +253,14 @@ public macro Generate(input: Tokens): Tokens {
     }
 
     let manifest: Manifest = outcome.manifest.getOrThrow()
+    let (wrappedCommands, bindings) = libToWrappers(manifest.commands)
     let generateImpl = GenerateImpl(Random())
     let previousBindings = ArrayList<GeneratedBinding>()
 
     let block = Block()
+    block.nodes.add(all: bindings)
     for (name in input) {
-        if (let Some(call) <- generateImpl.MakeRandomCall(manifest.commands, previousBindings)) {
+        if (let Some(call) <- generateImpl.MakeRandomCall(wrappedCommands, previousBindings)) {
             block.nodes.add(parseDecl(quote(let $name = $(call.value))))
             previousBindings.add(GeneratedBinding(name, call.typeAnnotation))
         } else {

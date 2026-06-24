@@ -29,6 +29,7 @@ public func map<A,B>(f: (A) -> B, xs: SLL<A>): SLL<B> {
 
 public func map_<A>(f: (A) -> Unit, xs: SLL<A>): Unit { map(f, xs) }
 
+/* TODO: implement preconditions to avoid `f` being constantly `Some(_)`
 public func generate<A>(f: () -> ?A): SLL<A> {
     var result = Nil<A>
     while (let Some(x) <- f()) {
@@ -36,6 +37,7 @@ public func generate<A>(f: () -> ?A): SLL<A> {
     }
     result
 }
+*/
 
 public func length<A>(xs: SLL<A>): Int64 {
     var rest = xs
