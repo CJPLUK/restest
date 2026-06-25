@@ -1,6 +1,6 @@
 [package]
   cjc-version = "1.0.5"
-  compile-option = "-O2 --int-overflow=wrapping"
+  compile-option = "-O2 --int-overflow=wrapping --experimental --enable-eh"
   description = ""
   name = "restest"
   output-type = "executable"

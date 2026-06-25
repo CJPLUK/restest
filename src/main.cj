@@ -3,6 +3,7 @@ package restest
 import restest.macros.Generate
 import restest.deps.*
 import test_test.*
+import stdx.effect.*
 
 main() {
     @Generate(a b c d e f g h)

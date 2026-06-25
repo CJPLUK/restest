@@ -259,13 +259,31 @@ public macro Generate(input: Tokens): Tokens {
 
     let block = Block()
     block.nodes.add(all: bindings)
+    let typeMapping = HashMap<String, TypeAnnotation>()
     for (name in input) {
         if (let Some(call) <- generateImpl.MakeRandomCall(wrappedCommands, previousBindings)) {
-            block.nodes.add(parseDecl(quote(let $name = $(call.value))))
-            previousBindings.add(GeneratedBinding(name, call.typeAnnotation))
+            let name_resumption = Token(IDENTIFIER, name.value + "_resumption")
+            typeMapping.add(name.value, call.typeAnnotation)
+            block.nodes.add(parseDecl(quote(let $name_resumption = Box(None<Resumption<Unit, ?$(call.typeAnnotation)>>))))
+            block.nodes.add(parseDecl(quote(var $name =
+                try {
+                    Some($(call.value))
+                } handle(_: Switch, r: Resumption<Unit, ?$(call.typeAnnotation)>) {
+                    $name_resumption.value = Some(r)
+                    None<$(call.typeAnnotation)>
+                })))
+            // previousBindings.add(GeneratedBinding(name, call.typeAnnotation))
         } else {
             throw Exception("@Generate could not find any generatable command.")
         }
+    }
+    for (name in input) {
+        let name_resumption = Token(IDENTIFIER, name.value + "_resumption")
+        block.nodes.add(parseExpr(quote(
+            if (let Some(r) <- $name_resumption.value) {
+                $name_resumption.value = None<Resumption<Unit, ?$(typeMapping[name.value])>>
+                $name = resume r
+            })))
     }
     let tupleExpr = makeGeneratedTuple(input)
     block.nodes.add(parseDecl(quote(let _ = $tupleExpr)))
