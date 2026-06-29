@@ -16,8 +16,10 @@ public class Func0<R> {
 extend<R> Func0<R> <: Arbitrary<Func0<R>> where R <: Arbitrary<R> {
     public static func arbitrary(random: RandomSource): Generator<Func0<R>> {
         Generators.mapped(random) { r: R =>
-            perform Switch()
-            Func0 { => r }
+            Func0 { =>
+                perform Switch()
+                r
+            }
         }
     }
 }
@@ -33,8 +35,10 @@ public class Func1<T0, R> {
 extend<T0, R> Func1<T0, R> <: Arbitrary<Func1<T0, R>> where R <: Arbitrary<R> {
     public static func arbitrary(random: RandomSource): Generator<Func1<T0, R>> {
         Generators.mapped(random) { r: R =>
-            perform Switch()
-            Func1 { _: T0 => r }
+            Func1 { _: T0 =>
+                perform Switch()
+                r
+            }
         }
     }
 }
@@ -50,8 +54,10 @@ public class Func2<T0, T1, R> {
 extend<T0, T1, R> Func2<T0, T1, R> <: Arbitrary<Func2<T0, T1, R>> where R <: Arbitrary<R> {
     public static func arbitrary(random: RandomSource): Generator<Func2<T0, T1, R>> {
         Generators.mapped(random) { r: R =>
-            perform Switch()
-            Func2 { _: T0, _: T1 => r }
+            Func2 { _: T0, _: T1 =>
+                perform Switch()
+                r
+            }
         }
     }
 }
