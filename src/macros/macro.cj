@@ -246,7 +246,8 @@ func libToWrappers(commands: ArrayList<CommandInfo>): (ArrayList<CommandInfo>, A
 }
 
 public macro Generate(input: Tokens): Tokens {
-    let outcome: ParseOutcome = parsePackage("./test-test")
+    let config = loadRestestConfig()
+    let outcome: ParseOutcome = parsePackage(config.projectPath)
     if (outcome.manifest.isNone()) {
         println(outcome.errorMessage)
         return Tokens()
@@ -254,7 +255,7 @@ public macro Generate(input: Tokens): Tokens {
 
     let manifest: Manifest = outcome.manifest.getOrThrow()
     let (wrappedCommands, bindings) = libToWrappers(manifest.commands)
-    let generateImpl = GenerateImpl(Random())
+    let generateImpl = GenerateImpl(Random(config.seed))
     let previousBindings = ArrayList<GeneratedBinding>()
 
     let block = Block()
