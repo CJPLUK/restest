@@ -7,7 +7,7 @@
  * for Clive (parser, tests). The generated driver inlines its own _normalizePath so
  * the executable stays self-contained; behavior is intended to match this module.
  */
-package restest.deps
+package restest_runner.deps
 
 import std.fs.*
 import std.collection.ArrayList

@@ -1,4 +1,4 @@
-package restest.deps
+package restest_runner.deps
 
 import std.unittest.*
 import std.unittest.testmacro.*

@@ -2,7 +2,7 @@
  * Source parser for Cangjie package: extracts package name, public functions, and public constructors.
  * Uses stdx.syntax for parsing; outputs a manifest for the code generator.
  */
-package restest.deps
+package restest_runner.deps
 
 import std.fs.*
 import std.collection.ArrayList

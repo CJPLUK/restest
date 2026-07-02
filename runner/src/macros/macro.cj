@@ -1,4 +1,4 @@
-macro package restest.macros
+macro package restest_runner.macros
 
 import std.ast.*
 import std.collection.*

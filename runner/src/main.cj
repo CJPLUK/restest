@@ -1,4 +1,4 @@
-package restest
+package restest_runner
 
 import restest.macros.Generate
 import restest.deps.*

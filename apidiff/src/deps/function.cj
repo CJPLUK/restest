@@ -1,4 +1,4 @@
-package restest.deps
+package restest_apidiff.deps
 
 import std.unittest.prop_test.*
 import stdx.effect.Command

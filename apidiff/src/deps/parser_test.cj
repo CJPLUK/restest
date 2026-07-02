@@ -2,7 +2,7 @@
  * Parser unit tests: parsePackage on fixture package; failure cases.
  * Run from Clive repo root so fixture path test/fixtures/minimal_package is valid.
  */
-package restest.deps
+package restest_apidiff.deps
 
 import std.collection.*
 import std.env.*

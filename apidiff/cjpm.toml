@@ -1,0 +1,24 @@
+[package]
+  cjc-version = "1.0.5"
+  compile-option = "-O2 --int-overflow=wrapping"
+  description = ""
+  name = "restest_apidiff"
+  output-type = "executable"
+  src-dir = "src"
+  target-dir = ""
+  version = "1.0.0"
+
+[dependencies]
+  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git" }
+
+[package.package-configuration."restest.deps"]
+  output-type = "dynamic"
+
+[package.package-configuration.restest]
+  compile-option = "--link-options \"-Ltarget/release/test_test -ltest_test\""
+
+[package.package-configuration."restest.macros"]
+  compile-option = "--link-options \"-Ltarget/release/restest -lrestest.deps\""
+
+[target.x86_64-unknown-linux-gnu.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}/linux_x86_64_cjnative/dynamic/stdx"]

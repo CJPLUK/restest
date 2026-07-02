@@ -2,7 +2,7 @@
  * Dir helper unit tests: normalizePath, isKnownPackagePath, packagePathFromFile.
  * Same package pkgcli — no explicit import of pkgcli needed.
  */
-package restest.deps
+package restest_apidiff.deps
 
 import std.collection.*
 import std.fs.*

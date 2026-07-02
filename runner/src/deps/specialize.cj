@@ -2,7 +2,7 @@
  * Helpers for specializing stdx.syntax generic type annotations and function signatures.
  * This is a syntactic substitution layer only; it does not resolve names or type-check bodies.
  */
-package restest.deps
+package restest_runner.deps
 
 import std.collection.ArrayList
 import stdx.syntax.*

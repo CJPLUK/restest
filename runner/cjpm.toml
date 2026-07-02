@@ -2,7 +2,7 @@
   cjc-version = "1.0.5"
   compile-option = "-O2 --int-overflow=wrapping --experimental --enable-eh"
   description = ""
-  name = "restest"
+  name = "restest_runner"
   output-type = "executable"
   src-dir = "src"
   target-dir = ""

@@ -1,4 +1,4 @@
-package restest.deps
+package restest_runner.deps
 
 import std.convert.*
 import std.env.*

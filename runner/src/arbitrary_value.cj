@@ -1,4 +1,4 @@
-package restest
+package restest_runner
 
 import std.random.Random
 import std.unittest.prop_test.{ Arbitrary, Generators }
