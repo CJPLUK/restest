@@ -33,6 +33,7 @@ public class Manifest {
 // One command: top-level function, constructor (ClassName new args), or class method (instance or static)
 public class CommandInfo <: Comparable<CommandInfo> & Hashable {
     public let name: String
+    public let packageNameParts: Array<String>
     public let genericParams: ArrayList<GenericParamInfo>
     public let isConstructor: Bool
     public let className: String  // if isConstructor or class method, the class name
@@ -41,12 +42,12 @@ public class CommandInfo <: Comparable<CommandInfo> & Hashable {
     public let returnIsRef: Bool   // true if return type is a class (store in object store)
     public let isInstanceMethod: Bool  // true for non-static instance methods (needs THIS)
     public let isStaticMethod: Bool    // true for static methods (no THIS)
-    public let packagePath: String     // CLI directory path: "/" for root, or e.g. "demo_sub"
 
-    public init(name: String, genericParams: ArrayList<GenericParamInfo>, isConstructor: Bool, className: String,
-        params: ArrayList<ParamInfo>, returnType: Option<TypeAnnotation>, returnIsRef: Bool, isInstanceMethod: Bool,
-        isStaticMethod: Bool, packagePath: String) {
+    public init(name: String, packageNameParts: Array<String>, genericParams: ArrayList<GenericParamInfo>,
+        isConstructor: Bool, className: String, params: ArrayList<ParamInfo>, returnType: Option<TypeAnnotation>,
+        returnIsRef: Bool, isInstanceMethod: Bool, isStaticMethod: Bool) {
         this.name = name
+        this.packageNameParts = packageNameParts
         this.genericParams = genericParams
         this.isConstructor = isConstructor
         this.className = className
@@ -55,12 +56,14 @@ public class CommandInfo <: Comparable<CommandInfo> & Hashable {
         this.returnIsRef = returnIsRef
         this.isInstanceMethod = isInstanceMethod
         this.isStaticMethod = isStaticMethod
-        this.packagePath = packagePath
     }
 
     @OverflowWrapping
     public func hashCode(): Int64 {
-        var hash = packagePath.hashCode() + 31 * name.hashCode()
+        var hash = name.hashCode()
+        for (packageNamePart in packageNameParts) {
+            hash = 31 * hash + packageNamePart.hashCode()
+        }
         for (genericParam in genericParams) {
             hash = 31 * hash + genericParam.name.hashCode()
         }
@@ -72,7 +75,7 @@ public class CommandInfo <: Comparable<CommandInfo> & Hashable {
     }
 
     public operator func ==(that: CommandInfo): Bool {
-        if (this.packagePath != that.packagePath || this.name != that.name ||
+        if (this.packageNameParts != that.packageNameParts || this.name != that.name ||
             this.genericParams.size != that.genericParams.size || this.params.size != that.params.size) {
             return false
         }
@@ -90,10 +93,14 @@ public class CommandInfo <: Comparable<CommandInfo> & Hashable {
     }
 
     public func compare(other: CommandInfo): Ordering {
+        let packageCompare = compareStringArrays(this.packageNameParts, other.packageNameParts)
+        if (packageCompare != EQ) {
+            return packageCompare
+        }
         this.displayText().compare(other.displayText())
     }
 
-    public func displayText(): String {
+    public func toFuncDecl(): FuncDecl {
         let syntaxGenericParams = ArrayList<GenericParam>()
         for (genericParam in genericParams) {
             syntaxGenericParams.add(GenericParam(genericParam.name))
@@ -104,7 +111,7 @@ public class CommandInfo <: Comparable<CommandInfo> & Hashable {
             syntaxParams.add(FuncParam(None, None, param.paramName, param.paramType))
         }
 
-        let signature = FuncDecl(
+        FuncDecl(
             None,
             None,
             syntaxGenericParams.toArray(),
@@ -113,9 +120,10 @@ public class CommandInfo <: Comparable<CommandInfo> & Hashable {
             ParameterList(syntaxParams.toArray()),
             returnType
         )
+    }
 
-        var display = signature.toString()
-        display
+    public func displayText(): String {
+        toFuncDecl().toString()
     }
 }
 
@@ -137,6 +145,28 @@ public class ParamInfo {
         this.paramName = paramName
         this.paramType = paramType
     }
+}
+
+func compareStringArrays(left: Array<String>, right: Array<String>): Ordering {
+    let commonSize = min(left.size, right.size)
+    for (i in 0..commonSize) {
+        let itemCompare = left[i].compare(right[i])
+        if (itemCompare != EQ) {
+            return itemCompare
+        }
+    }
+    left.size.compare(right.size)
+}
+
+func packageNameFromParts(parts: Array<String>): String {
+    var packageName = ""
+    for (i in 0..parts.size) {
+        if (i > 0) {
+            packageName += "."
+        }
+        packageName += parts[i]
+    }
+    packageName
 }
 
 func optionalTypeAnnotationEquals(left: Option<TypeAnnotation>, right: Option<TypeAnnotation>): Bool {
@@ -309,23 +339,6 @@ func getGenericParamList(fd: FuncDecl): ArrayList<GenericParamInfo> {
     result
 }
 
-func packageNameFromHeader(header: PackageHeader): String {
-    if (header.packageNameIdentifiers.size == 0) {
-        return ""
-    }
-
-    var packageName = ""
-    var i: Int64 = 0
-    while (i < header.packageNameIdentifiers.size) {
-        if (i > 0) {
-            packageName += "."
-        }
-        packageName += header.packageNameIdentifiers[i]
-        i++
-    }
-    packageName
-}
-
 func getReturnType(fd: FuncDecl): Option<TypeAnnotation> {
     fd.retTyAnnotation
 }
@@ -361,28 +374,28 @@ func isNormalFunc(fd: FuncDecl): Bool {
 }
 
 // Collect one decl from class body: public init, or public instance/static func
-func collectClassBodyDecl(className: String, decl: Decl, commands: ArrayList<CommandInfo>, packagePath: String): Unit {
+func collectClassBodyDecl(className: String, decl: Decl, commands: ArrayList<CommandInfo>, packageNameParts: Array<String>): Unit {
     match (decl) {
         case fd: FuncDecl =>
             if (isConstructorFunc(fd) && isPublic(fd)) {
                 let params: ArrayList<ParamInfo> = getParamList(fd)
-                commands.add(all: [CommandInfo("init", ArrayList<GenericParamInfo>(), true, className, params,
-                    None, false, false, false, packagePath)])
+                commands.add(all: [CommandInfo("init", packageNameParts, ArrayList<GenericParamInfo>(), true, className,
+                    params, None, false, false, false)])
             } else if (isNormalFunc(fd) && isPublic(fd) && !isOperatorMethodName(fd.name)) {
                 let genericParams: ArrayList<GenericParamInfo> = getGenericParamList(fd)
                 let returnType = getReturnType(fd)
                 let methodParams: ArrayList<ParamInfo> = getParamList(fd)
                 if (isStatic(fd)) {
-                    commands.add(all: [CommandInfo(fd.name, genericParams, false, className, methodParams, returnType,
-                        isRefType(returnType), false, true, packagePath)])
+                    commands.add(all: [CommandInfo(fd.name, packageNameParts, genericParams, false, className,
+                        methodParams, returnType, isRefType(returnType), false, true)])
                 } else {
                     let paramsWithThis: ArrayList<ParamInfo> = ArrayList<ParamInfo>()
                     paramsWithThis.add(all: [ParamInfo("this", makeClassType(className))])
                     for (param in methodParams) {
                         paramsWithThis.add(all: [param])
                     }
-                    commands.add(all: [CommandInfo(fd.name, genericParams, false, className, paramsWithThis,
-                        returnType, isRefType(returnType), true, false, packagePath)])
+                    commands.add(all: [CommandInfo(fd.name, packageNameParts, genericParams, false, className,
+                        paramsWithThis, returnType, isRefType(returnType), true, false)])
                 }
             }
         case _ => ()
@@ -390,41 +403,47 @@ func collectClassBodyDecl(className: String, decl: Decl, commands: ArrayList<Com
 }
 
 // Collect public init commands from a class body into commands list
-func collectPublicInits(className: String, body: Body, commands: ArrayList<CommandInfo>, packagePath: String): Unit {
+func collectPublicInits(className: String, body: Body, commands: ArrayList<CommandInfo>, packageNameParts: Array<String>): Unit {
     for (decl in body.memberDecls) {
-        collectClassBodyDecl(className, decl, commands, packagePath)
+        collectClassBodyDecl(className, decl, commands, packageNameParts)
     }
 }
 
-// Process one parsed file: mutates packageName (first file at root sets it) and appends to commands.
-// Contract: first file with packagePath == "/" and non-empty package declaration sets package name; order is from collectCjFilesUnder (sorted paths).
-func processFile(file: SourceFile, packageName: ArrayList<String>, commands: ArrayList<CommandInfo>, packagePath: String): Unit {
+func requirePackageNameParts(file: SourceFile): Option<Array<String>> {
     if (let Some(header) <- file.pkgHeader) {
-        let pkgStr: String = packageNameFromHeader(header)
-        if (pkgStr.size > 0 && packageName.size == 0 && packagePath == rootPackagePath) {
-            packageName.add(all: [pkgStr])
+        if (header.packageNameIdentifiers.size == 0) {
+            return None
         }
+        return Some(header.packageNameIdentifiers)
     }
+    None
+}
 
+// Process one parsed file: mutates packageName (first seen declaration sets manifest package name) and appends to commands.
+func processFile(file: SourceFile, packageName: ArrayList<String>, commands: ArrayList<CommandInfo>, packageNameParts: Array<String>): Unit {
+    let pkgStr: String = packageNameFromParts(packageNameParts)
+    if (pkgStr.size > 0 && packageName.size == 0) {
+        packageName.add(all: [pkgStr])
+    }
     for (decl in file.topLevelDecls) {
-        collectTopLevelDecl(decl, commands, packagePath)
+        collectTopLevelDecl(decl, commands, packageNameParts)
     }
 }
 
 // Handle one top-level decl: add public class inits or public func to commands
-func collectTopLevelDecl(decl: Decl, commands: ArrayList<CommandInfo>, packagePath: String): Unit {
+func collectTopLevelDecl(decl: Decl, commands: ArrayList<CommandInfo>, packageNameParts: Array<String>): Unit {
     match (decl) {
         case cd: ClassDecl =>
             if (isPublic(cd)) {
-                collectPublicInits(cd.name, cd.body, commands, packagePath)
+                collectPublicInits(cd.name, cd.body, commands, packageNameParts)
             }
         case fd: FuncDecl =>
             if (isPublic(fd) && isNormalFunc(fd)) {
                 let genericParams: ArrayList<GenericParamInfo> = getGenericParamList(fd)
                 let params: ArrayList<ParamInfo> = getParamList(fd)
                 let returnType = getReturnType(fd)
-                commands.add(all: [CommandInfo(fd.name, genericParams, false, "", params, returnType,
-                    isRefType(returnType), false, false, packagePath)])
+                commands.add(all: [CommandInfo(fd.name, packageNameParts, genericParams, false, "", params,
+                    returnType, isRefType(returnType), false, false)])
             }
         case _ => ()
     }
@@ -453,15 +472,19 @@ public func parsePackage(sourcePath: String): ParseOutcome {
 
         for (path in cjPaths) {
             let pathStr = path.toString()
-            let pkgPath: String = packagePathFromFile(path, scanDir)
             let result = parseFile(pathStr)
             if (result.node.isNone() || hasErrorDiagnostics(result)) {
                 return ParseOutcome(Option<Manifest>.None, "failed to parse file: " + pathStr)
             }
-            processFile(result.node.getOrThrow(), packageName, commands, pkgPath)
+            let file = result.node.getOrThrow()
+            let packageNameParts = requirePackageNameParts(file)
+            if (packageNameParts.isNone()) {
+                return ParseOutcome(Option<Manifest>.None, "missing package declaration: " + pathStr)
+            }
+            processFile(file, packageName, commands, packageNameParts.getOrThrow())
         }
 
-        let pkgName: String = if (packageName.size > 0) { packageName.get(0).getOrThrow() } else { "default" }
+        let pkgName: String = if (packageName.size > 0) { packageName.get(0).getOrThrow() } else { "" }
         return ParseOutcome(Option<Manifest>.Some(Manifest(pkgName, commands)), "")
     } catch (_) {
         return ParseOutcome(Option<Manifest>.None, "invalid package path or cannot read directory: " + sourcePath)
