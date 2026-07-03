@@ -1,6 +1,5 @@
 package restest_apidiff.deps
 
-import std.convert.*
 import std.env.*
 import stdx.encoding.json.*
 import toml4cj.decoders.*
@@ -56,7 +55,7 @@ public class EnvTypeException <: Exception {
 }
 
 public struct RestestConfig {
-    public RestestConfig(public let projectPath: String, public let seed: UInt64) {}
+    public RestestConfig(public let leftProjectPath: String, public let rightProjectPath: String) {}
 }
 
 func requireValue(value: ?JsonValue, key: String): JsonValue {
@@ -73,23 +72,6 @@ func requireString(value: JsonValue, key: String): String {
     }
 }
 
-func requireUInt64(value: JsonValue, key: String): UInt64 {
-    match (value) {
-        case intValue: JsonInt =>
-            let seed = intValue.getValue()
-            if (seed < 0) {
-                throw ConfigTypeException(key, "a UInt64")
-            }
-            UInt64(seed)
-        case stringValue: JsonString =>
-            match (UInt64.tryParse(stringValue.getValue())) {
-                case Some(seed) => seed
-                case None => throw ConfigTypeException(key, "a UInt64")
-            }
-        case _ => throw ConfigTypeException(key, "a UInt64")
-    }
-}
-
 func loadRestestConfigFromFile(path: String): RestestConfig {
     let decoder = Decoder()
     let root = try {
@@ -103,8 +85,8 @@ func loadRestestConfigFromFile(path: String): RestestConfig {
         throw ConfigFileException(path, e.message)
     }
     RestestConfig(
-        requireString(requireValue(root.get("project"), "project"), "project"),
-        requireUInt64(requireValue(root.get("seed"), "seed"), "seed")
+        requireString(requireValue(root.get("left_project"), "left_project"), "left_project"),
+        requireString(requireValue(root.get("right_project"), "right_project"), "right_project")
     )
 }
 
@@ -115,17 +97,10 @@ func requireEnvValue(value: ?String, key: String): String {
     }
 }
 
-func requireEnvUInt64(value: String, key: String): UInt64 {
-    match (UInt64.tryParse(value)) {
-        case Some(parsed) => parsed
-        case None => throw EnvTypeException(key, "a UInt64")
-    }
-}
-
 func loadRestestConfigFromEnv(): RestestConfig {
     RestestConfig(
-        requireEnvValue(getVariable("RESTEST_PROJECT"), "RESTEST_PROJECT"),
-        requireEnvUInt64(requireEnvValue(getVariable("RESTEST_SEED"), "RESTEST_SEED"), "RESTEST_SEED")
+        requireEnvValue(getVariable("RESTEST_LEFT_PROJECT"), "RESTEST_LEFT_PROJECT"),
+        requireEnvValue(getVariable("RESTEST_RIGHT_PROJECT"), "RESTEST_RIGHT_PROJECT")
     )
 }
 

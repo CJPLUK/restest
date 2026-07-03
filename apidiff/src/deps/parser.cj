@@ -31,7 +31,7 @@ public class Manifest {
 }
 
 // One command: top-level function, constructor (ClassName new args), or class method (instance or static)
-public class CommandInfo {
+public class CommandInfo <: Comparable<CommandInfo> & Hashable {
     public let name: String
     public let genericParams: ArrayList<GenericParamInfo>
     public let isConstructor: Bool
@@ -57,6 +57,66 @@ public class CommandInfo {
         this.isStaticMethod = isStaticMethod
         this.packagePath = packagePath
     }
+
+    @OverflowWrapping
+    public func hashCode(): Int64 {
+        var hash = packagePath.hashCode() + 31 * name.hashCode()
+        for (genericParam in genericParams) {
+            hash = 31 * hash + genericParam.name.hashCode()
+        }
+        for (param in params) {
+            hash = 31 * hash + typeAnnotationHashCode(param.paramType)
+        }
+        hash = 31 * hash + optionalTypeAnnotationHashCode(returnType)
+        return hash
+    }
+
+    public operator func ==(that: CommandInfo): Bool {
+        if (this.packagePath != that.packagePath || this.name != that.name ||
+            this.genericParams.size != that.genericParams.size || this.params.size != that.params.size) {
+            return false
+        }
+        for (i in 0..genericParams.size) {
+            if (this.genericParams[i].name != that.genericParams[i].name) {
+                return false
+            }
+        }
+        for (i in 0..params.size) {
+            if (!typeAnnotationEquals(this.params[i].paramType, that.params[i].paramType)) {
+                return false
+            }
+        }
+        optionalTypeAnnotationEquals(this.returnType, that.returnType)
+    }
+
+    public func compare(other: CommandInfo): Ordering {
+        this.displayText().compare(other.displayText())
+    }
+
+    public func displayText(): String {
+        let syntaxGenericParams = ArrayList<GenericParam>()
+        for (genericParam in genericParams) {
+            syntaxGenericParams.add(GenericParam(genericParam.name))
+        }
+
+        let syntaxParams = ArrayList<Parameter>()
+        for (param in params) {
+            syntaxParams.add(FuncParam(None, None, param.paramName, param.paramType))
+        }
+
+        let signature = FuncDecl(
+            None,
+            None,
+            syntaxGenericParams.toArray(),
+            FuncKind.Normal,
+            name,
+            ParameterList(syntaxParams.toArray()),
+            returnType
+        )
+
+        var display = signature.toString()
+        display
+    }
 }
 
 public class GenericParamInfo {
@@ -76,6 +136,105 @@ public class ParamInfo {
     public init(paramName: String, paramType: TypeAnnotation) {
         this.paramName = paramName
         this.paramType = paramType
+    }
+}
+
+func optionalTypeAnnotationEquals(left: Option<TypeAnnotation>, right: Option<TypeAnnotation>): Bool {
+    if (let Some(leftType) <- left) {
+        if (let Some(rightType) <- right) {
+            return typeAnnotationEquals(leftType, rightType)
+        }
+        return false
+    }
+    right.isNone()
+}
+
+func typeAnnotationEquals(left: TypeAnnotation, right: TypeAnnotation): Bool {
+    match ((left, right)) {
+        case lr: (AtomicType, AtomicType) =>
+            let (leftType, rightType) = lr
+            leftType.toString() == rightType.toString()
+        case lr: (CompositeType, CompositeType) =>
+            let (leftType, rightType) = lr
+            leftType.name == rightType.name && leftType.prefixes == rightType.prefixes &&
+                typeAnnotationArrayEquals(leftType.typeArguments, rightType.typeArguments)
+        case lr: (PrefixType, PrefixType) =>
+            let (leftType, rightType) = lr
+            leftType.toString() == rightType.toString() && typeAnnotationEquals(leftType.base, rightType.base)
+        case lr: (ParenType, ParenType) =>
+            let (leftType, rightType) = lr
+            typeAnnotationEquals(leftType.subType, rightType.subType)
+        case lr: (TupleType, TupleType) =>
+            let (leftType, rightType) = lr
+            leftType.labels == rightType.labels &&
+                typeAnnotationArrayEquals(leftType.elements, rightType.elements)
+        case lr: (FuncType, FuncType) =>
+            let (leftType, rightType) = lr
+            leftType.labels == rightType.labels &&
+                typeAnnotationArrayEquals(leftType.paramTypes, rightType.paramTypes) &&
+                typeAnnotationEquals(leftType.retType, rightType.retType)
+        case lr: (VArrayType, VArrayType) =>
+            let (leftType, rightType) = lr
+            leftType.size == rightType.size && typeAnnotationEquals(leftType.elementType, rightType.elementType)
+        case _ => false
+    }
+}
+
+func typeAnnotationArrayEquals(left: Array<TypeAnnotation>, right: Array<TypeAnnotation>): Bool {
+    if (left.size != right.size) {
+        return false
+    }
+    for (i in 0..left.size) {
+        if (!typeAnnotationEquals(left[i], right[i])) {
+            return false
+        }
+    }
+    true
+}
+
+@OverflowWrapping
+func optionalTypeAnnotationHashCode(typeAnnotation: Option<TypeAnnotation>): Int64 {
+    match (typeAnnotation) {
+        case Some(ty) => 31 + typeAnnotationHashCode(ty)
+        case None => 0
+    }
+}
+
+@OverflowWrapping
+func typeAnnotationHashCode(typeAnnotation: TypeAnnotation): Int64 {
+    match (typeAnnotation) {
+        case ty: AtomicType => ty.toString().hashCode()
+        case ty: CompositeType =>
+            var hash = ty.name.hashCode()
+            for (prefix in ty.prefixes) {
+                hash = 31 * hash + prefix.hashCode()
+            }
+            for (typeArgument in ty.typeArguments) {
+                hash = 31 * hash + typeAnnotationHashCode(typeArgument)
+            }
+            hash
+        case ty: PrefixType => 31 * ty.toString().hashCode() + typeAnnotationHashCode(ty.base)
+        case ty: ParenType => 31 * typeAnnotationHashCode(ty.subType)
+        case ty: TupleType =>
+            var hash = 7
+            for (label in ty.labels) {
+                hash = 31 * hash + label.hashCode()
+            }
+            for (element in ty.elements) {
+                hash = 31 * hash + typeAnnotationHashCode(element)
+            }
+            hash
+        case ty: FuncType =>
+            var hash = 11
+            for (label in ty.labels) {
+                hash = 31 * hash + label.hashCode()
+            }
+            for (paramType in ty.paramTypes) {
+                hash = 31 * hash + typeAnnotationHashCode(paramType)
+            }
+            31 * hash + typeAnnotationHashCode(ty.retType)
+        case ty: VArrayType => 31 * ty.size.hashCode() + typeAnnotationHashCode(ty.elementType)
+        case _ => typeAnnotation.toString().hashCode()
     }
 }
 
