@@ -9,7 +9,11 @@
   version = "1.0.0"
 
 [dependencies]
-  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git" }
+  restest_common = { path = "../restest_common", output-type = "static" }
+  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git", output-type = "static" }
+
+[package.package-configuration.restest_apidiff]
+  compile-option = "--link-options \"../restest_common/target/release/restest_common/librestest_common.a\""
 
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
   path-option = ["${CANGJIE_STDX_PATH}/linux_x86_64_cjnative/dynamic/stdx"]

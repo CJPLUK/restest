@@ -4,6 +4,7 @@
  */
 package restest_apidiff.deps
 
+import restest_common.*
 import std.collection.*
 import std.env.*
 import std.unittest.*

@@ -1,0 +1,12 @@
+[package]
+  cjc-version = "1.0.5"
+  compile-option = "-O2 --int-overflow=wrapping"
+  description = ""
+  name = "restest_common"
+  output-type = "static"
+  src-dir = "src"
+  target-dir = ""
+  version = "1.0.0"
+
+[target.x86_64-unknown-linux-gnu.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}/linux_x86_64_cjnative/dynamic/stdx"]

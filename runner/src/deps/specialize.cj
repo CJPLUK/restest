@@ -5,6 +5,7 @@
 package restest_runner.deps
 
 import std.collection.ArrayList
+import restest_common.*
 import stdx.syntax.*
 
 public class TypeSubstitution {

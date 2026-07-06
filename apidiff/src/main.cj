@@ -2,6 +2,7 @@ package restest_apidiff
 
 import std.collection.*
 import restest_apidiff.deps.*
+import restest_common.*
 import std.sort.*
 import stdx.syntax.*
 
@@ -39,21 +40,6 @@ func collectSharedTopLevelFunctions(left: Manifest, right: Manifest): ArrayList<
         shared.add(command)
     }
     shared
-}
-
-func joinStrings(parts: Array<String>, delimiter: String): String {
-    var result = ""
-    for (i in 0..parts.size) {
-        if (i > 0) {
-            result += delimiter
-        }
-        result += parts[i]
-    }
-    result
-}
-
-func interfaceNameFromPackageParts(packageNameParts: Array<String>): String {
-    "Restest__" + joinStrings(packageNameParts, "__")
 }
 
 func buildInterfaces(commands: ArrayList<CommandInfo>): ArrayList<InterfaceDecl> {

@@ -5,6 +5,7 @@
 package restest_apidiff.deps
 
 import std.collection.ArrayList
+import restest_common.*
 import stdx.syntax.*
 
 public class TypeSubstitution {

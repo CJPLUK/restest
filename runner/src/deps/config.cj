@@ -56,7 +56,7 @@ public class EnvTypeException <: Exception {
 }
 
 public struct RestestConfig {
-    public RestestConfig(public let projectPath: String, public let seed: UInt64) {}
+    public RestestConfig(public let commandsPath: String, public let seed: UInt64) {}
 }
 
 func requireValue(value: ?JsonValue, key: String): JsonValue {
@@ -103,7 +103,7 @@ func loadRestestConfigFromFile(path: String): RestestConfig {
         throw ConfigFileException(path, e.message)
     }
     RestestConfig(
-        requireString(requireValue(root.get("project"), "project"), "project"),
+        requireString(requireValue(root.get("commands"), "commands"), "commands"),
         requireUInt64(requireValue(root.get("seed"), "seed"), "seed")
     )
 }
@@ -124,7 +124,7 @@ func requireEnvUInt64(value: String, key: String): UInt64 {
 
 func loadRestestConfigFromEnv(): RestestConfig {
     RestestConfig(
-        requireEnvValue(getVariable("RESTEST_PROJECT"), "RESTEST_PROJECT"),
+        requireEnvValue(getVariable("RESTEST_COMMANDS"), "RESTEST_COMMANDS"),
         requireEnvUInt64(requireEnvValue(getVariable("RESTEST_SEED"), "RESTEST_SEED"), "RESTEST_SEED")
     )
 }

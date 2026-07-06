@@ -1,7 +1,7 @@
 package restest_runner
 
-import restest.macros.Generate
-import restest.deps.*
+import restest_runner.deps.*
+import restest_runner.macros.Generate
 import test_test.*
 import stdx.effect.*
 

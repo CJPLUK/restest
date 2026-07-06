@@ -9,17 +9,18 @@
   version = "1.0.0"
 
 [dependencies]
-  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git" }
-  test_test = { path = "./test-test", output-type = "static" }
+  restest_common = { path = "../restest_common", output-type = "static" }
+  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git", output-type = "static" }
+  test_test = { path = "../test-test2", output-type = "static" }
 
-[package.package-configuration."restest.deps"]
-  output-type = "dynamic"
+[package.package-configuration."restest_runner.deps"]
+  output-type = "static"
 
-[package.package-configuration.restest]
-  compile-option = "--link-options \"-Ltarget/release/test_test -ltest_test\""
+[package.package-configuration.restest_runner]
+  compile-option = "--link-options \"target/release/test_test/libtest_test.a\""
 
-[package.package-configuration."restest.macros"]
-  compile-option = "--link-options \"-Ltarget/release/restest -lrestest.deps\""
+[package.package-configuration."restest_runner.macros"]
+  compile-option = "--link-options \"target/release/restest_runner/librestest_runner.deps.a\""
 
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
   path-option = ["${CANGJIE_STDX_PATH}/linux_x86_64_cjnative/dynamic/stdx"]

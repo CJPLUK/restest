@@ -3,6 +3,7 @@ macro package restest_runner.macros
 import std.ast.*
 import std.collection.*
 import std.random.*
+import restest_common.*
 import stdx.syntax.{ AtomicType, AtomicTypeKind, CompositeType, TypeAnnotation }
 import stdx.syntax.Argument as StdxArgument
 import stdx.syntax.Block as StdxBlock
@@ -18,7 +19,7 @@ import stdx.syntax.Parameter as StdxParameter
 import stdx.syntax.ParameterList as StdxParameterList
 import stdx.syntax.SymbolRef as StdxSymbolRef
 import stdx.syntax.SyntaxTreeNode as StdxSyntaxTreeNode
-import restest.deps.*
+import restest_runner.deps.*
 
 struct WithType<T> {
     public WithType(public let value: T, public let typeAnnotation: TypeAnnotation) {}
@@ -224,9 +225,9 @@ func libToWrappers(commands: ArrayList<CommandInfo>): (ArrayList<CommandInfo>, A
             continue
         }
 
-        let wrappedCommand = CommandInfo(wrappedName, command.genericParams, command.isConstructor, command.className,
-            wrappedParams, command.returnType, command.returnIsRef, command.isInstanceMethod,
-            command.isStaticMethod, command.packagePath)
+        let wrappedCommand = CommandInfo(wrappedName, command.packageNameParts, command.genericParams,
+            command.isConstructor, command.className, wrappedParams, command.returnType, command.returnIsRef,
+            command.isInstanceMethod, command.isStaticMethod)
         wrappedCommands.add(wrappedCommand)
 
         let genericParams = ArrayList<StdxGenericParam>(command.genericParams.size)
@@ -247,14 +248,8 @@ func libToWrappers(commands: ArrayList<CommandInfo>): (ArrayList<CommandInfo>, A
 
 public macro Generate(input: Tokens): Tokens {
     let config = loadRestestConfig()
-    let outcome: ParseOutcome = parsePackage(config.projectPath)
-    if (outcome.manifest.isNone()) {
-        println(outcome.errorMessage)
-        return Tokens()
-    }
-
-    let manifest: Manifest = outcome.manifest.getOrThrow()
-    let (wrappedCommands, bindings) = libToWrappers(manifest.commands)
+    let commands = loadCommandsFromInterfaces(config.commandsPath)
+    let (wrappedCommands, bindings) = libToWrappers(commands)
     let generateImpl = GenerateImpl(Random(config.seed))
     let previousBindings = ArrayList<GeneratedBinding>()
 
