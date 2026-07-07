@@ -13,7 +13,7 @@ public func singleton<A>(x: A): SLL<A> {
     Cons(x, Nil)
 }
 
-public func append<A>(xs: SLL<A>, ys: SLL<A>): SLL<A> {
+public func revapp<A>(xs: SLL<A>, ys: SLL<A>): SLL<A> {
     var ret = ys
     var here = xs
     while (let Cons(z, zs) <- here) {

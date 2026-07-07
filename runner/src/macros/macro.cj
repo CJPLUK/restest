@@ -30,7 +30,10 @@ struct WithType<T> {
 }
 
 type GeneratedBinding = WithType<Token>
-type GeneratedCall = WithType<Tokens>
+
+struct GeneratedCall {
+    public GeneratedCall(public let value: Tokens, public let typeAnnotation: TypeAnnotation, public let trace: String) {}
+}
 
 class GenerateImpl {
     public GenerateImpl(private let rand: Random) {}
@@ -137,8 +140,9 @@ class GenerateImpl {
             arg.expr = MakeRandomArgument(param.paramType, previousBindings)
             args.add(arg)
         }
+        let traceName = command.name.replace("restest__", "")
         Some(GeneratedCall(Token(IDENTIFIER, command.name) + quote(($(args))),
-            specialized.returnType.getOrThrow()))
+            specialized.returnType.getOrThrow(), traceName + "(...)"))
     }
 
     public func MakeRandomCall(commands: ArrayList<CommandInfo>, previousBindings: ArrayList<GeneratedBinding>): Option<GeneratedCall> {
@@ -259,7 +263,9 @@ public macro Generate(input: Tokens): Tokens {
     for (name in input) {
         if (let Some(call) <- generateImpl.MakeRandomCall(wrappedCommands, previousBindings)) {
             let name_resumption = Token(IDENTIFIER, name.value + "_resumption")
+            let name_trace = Token(IDENTIFIER, name.value + "_trace")
             typeMapping.add(name.value, call.typeAnnotation)
+            block.nodes.add(parseDecl(quote(let $name_trace = $(Token(STRING_LITERAL, call.trace)))))
             block.nodes.add(parseDecl(quote(let $name_resumption = Box(None<Resumption<Unit, ?$(call.typeAnnotation)>>))))
             block.nodes.add(parseDecl(quote(var $name =
                 try {
