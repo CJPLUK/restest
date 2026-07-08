@@ -10,6 +10,14 @@ import stdx.encoding.json.*
 import stdx.syntax.*
 import toml4cj.decoders.*
 
+struct DiffResult {
+    DiffResult(
+        let shared: ArrayList<CommandInfo>,
+        let leftOnly: ArrayList<CommandInfo>,
+        let rightOnly: ArrayList<CommandInfo>
+    ) {}
+}
+
 struct RunnerTarget {
     RunnerTarget(let packageName: String, let projectPath: String) {}
 }
@@ -18,7 +26,7 @@ func commandIsTopLevelFunction(command: CommandInfo): Bool {
     !command.isConstructor && !command.isInstanceMethod && !command.isStaticMethod && command.className.isEmpty()
 }
 
-func collectSharedTopLevelFunctions(left: Manifest, right: Manifest): ArrayList<CommandInfo> {
+func collectTopLevelFunctionDiff(left: Manifest, right: Manifest): DiffResult {
     let leftCommands = HashMap<CommandInfo, Unit>()
     for (command in left.commands) {
         if (commandIsTopLevelFunction(command)) {
@@ -27,27 +35,41 @@ func collectSharedTopLevelFunctions(left: Manifest, right: Manifest): ArrayList<
     }
 
     let sharedCommands = HashMap<CommandInfo, Unit>()
+    let rightCommands = HashMap<CommandInfo, Unit>()
     for (command in right.commands) {
         if (!commandIsTopLevelFunction(command)) {
             continue
         }
 
+        rightCommands[command] = ()
         if (leftCommands.contains(command)) {
             sharedCommands[command] = ()
         }
     }
 
-    let sortedCommands = ArrayList<CommandInfo>()
+    let sortedSharedCommands = ArrayList<CommandInfo>()
     for ((command, _) in sharedCommands) {
-        sortedCommands.add(command)
+        sortedSharedCommands.add(command)
     }
-    sort(sortedCommands)
+    sort(sortedSharedCommands)
 
-    let shared = ArrayList<CommandInfo>()
-    for (command in sortedCommands) {
-        shared.add(command)
+    let sortedLeftOnlyCommands = ArrayList<CommandInfo>()
+    for ((command, _) in leftCommands) {
+        if (!sharedCommands.contains(command)) {
+            sortedLeftOnlyCommands.add(command)
+        }
     }
-    shared
+    sort(sortedLeftOnlyCommands)
+
+    let sortedRightOnlyCommands = ArrayList<CommandInfo>()
+    for ((command, _) in rightCommands) {
+        if (!sharedCommands.contains(command)) {
+            sortedRightOnlyCommands.add(command)
+        }
+    }
+    sort(sortedRightOnlyCommands)
+
+    DiffResult(sortedSharedCommands, sortedLeftOnlyCommands, sortedRightOnlyCommands)
 }
 
 func buildInterfaces(commands: ArrayList<CommandInfo>): ArrayList<InterfaceDecl> {
@@ -170,6 +192,12 @@ func generateArtifacts(sharedCommands: ArrayList<CommandInfo>, leftTarget: Runne
     instantiateRunner(templateRunnerRoot, Path(generatedRoot).join("runner-right").toString(), rightTarget, commonRoot)
 }
 
+func printOnlyAppearsWarnings(commands: ArrayList<CommandInfo>, projectPath: String): Unit {
+    for (command in commands) {
+        eprintln("Warning: ${command.displayText()} only appears in ${projectPath}")
+    }
+}
+
 func requireManifest(outcome: ParseOutcome, projectPath: String): Option<Manifest> {
     match (outcome.manifest) {
         case Some(manifest) => Some(manifest)
@@ -193,11 +221,13 @@ main() {
         return 1
     }
 
-    let sharedCommands = collectSharedTopLevelFunctions(leftManifest.getOrThrow(), rightManifest.getOrThrow())
+    let diffResult = collectTopLevelFunctionDiff(leftManifest.getOrThrow(), rightManifest.getOrThrow())
+    printOnlyAppearsWarnings(diffResult.leftOnly, config.leftProjectPath)
+    printOnlyAppearsWarnings(diffResult.rightOnly, config.rightProjectPath)
     if (generationModeEnabled()) {
-        generateArtifacts(sharedCommands, leftTarget, rightTarget)
+        generateArtifacts(diffResult.shared, leftTarget, rightTarget)
     } else {
-        println(renderInterfaces(sharedCommands))
+        println(renderInterfaces(diffResult.shared))
     }
     0
 }
