@@ -10,7 +10,7 @@
 
 [dependencies]
   restest_common = { path = "../restest_common", output-type = "static" }
-  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git", output-type = "static" }
+  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git" }
 
 [package.package-configuration.restest_apidiff]
   compile-option = "--link-options \"../restest_common/target/release/restest_common/librestest_common.a\""

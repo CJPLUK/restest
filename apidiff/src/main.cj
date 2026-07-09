@@ -180,8 +180,16 @@ func generationModeEnabled(): Bool {
     args.size > 1 && args[1] == "generate-runners"
 }
 
-func generateArtifacts(sharedCommands: ArrayList<CommandInfo>, leftTarget: RunnerTarget, rightTarget: RunnerTarget): Unit {
-    let repoRoot = canonicalize("..").toString()
+func requireRestestRoot(): String {
+    let root = match (getVariable("RESTEST_ROOT")) {
+        case Some(value) => value
+        case None => throw Exception("RESTEST_ROOT is required in generate-runners mode")
+    }
+    canonicalize(root).toString()
+}
+
+func generateArtifacts(sharedCommands: ArrayList<CommandInfo>, leftTarget: RunnerTarget, rightTarget: RunnerTarget,
+    repoRoot: String): Unit {
     let generatedRoot = Path(repoRoot).join(".generated").toString()
     let templateRunnerRoot = Path(repoRoot).join("runner").toString()
     let commonRoot = canonicalize(Path(repoRoot).join("restest_common")).toString()
@@ -225,7 +233,7 @@ main() {
     printOnlyAppearsWarnings(diffResult.leftOnly, config.leftProjectPath)
     printOnlyAppearsWarnings(diffResult.rightOnly, config.rightProjectPath)
     if (generationModeEnabled()) {
-        generateArtifacts(diffResult.shared, leftTarget, rightTarget)
+        generateArtifacts(diffResult.shared, leftTarget, rightTarget, requireRestestRoot())
     } else {
         println(renderInterfaces(diffResult.shared))
     }
