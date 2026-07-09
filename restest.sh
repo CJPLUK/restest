@@ -54,7 +54,8 @@ RESTEST_LEFT_PROJECT="${CLI_LEFT_PROJECT:-${RESTEST_LEFT_PROJECT:-./test-test}}"
 RESTEST_RIGHT_PROJECT="${CLI_RIGHT_PROJECT:-${RESTEST_RIGHT_PROJECT:-./test-test2}}"
 RESTEST_SEED="${CLI_SEED:-${RESTEST_SEED:-0}}"
 
-export LD_LIBRARY_PATH="${ROOT}/restest_common/target/release/restest_common:/home/james/cangjie-sdk-linux-x64-28Feb2026-EH-beta/lib/linux_x86_64_cjnative:$HOME/.cjpm/libs/restest_apidiff:${LD_LIBRARY_PATH:-}"
+: "${CANGJIE_HOME:?CANGJIE_HOME is required}"
+export LD_LIBRARY_PATH="${ROOT}/restest_common/target/release/restest_common:${CANGJIE_HOME}/lib/linux_x86_64_cjnative:$HOME/.cjpm/libs/restest_apidiff:${LD_LIBRARY_PATH:-}"
 export RESTEST_ROOT="${ROOT}"
 cd $RESTEST_ROOT
 

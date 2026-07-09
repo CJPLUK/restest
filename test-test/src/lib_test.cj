@@ -3,7 +3,6 @@ package test_test
 import std.unittest.*
 import std.unittest.testmacro.*
 import std.unittest.prop_test.*
-// import cangjie_experiments.resumptions
 
 /*
 @Test[xs in random<SLL<Int64>>()] 
