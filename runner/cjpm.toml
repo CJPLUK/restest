@@ -1,6 +1,6 @@
 [package]
   cjc-version = "1.0.5"
-  compile-option = "-O2 --int-overflow=wrapping --experimental --enable-eh"
+  compile-option = "-O2 --int-overflow=wrapping --experimental --enable-eh -Woff unused"
   description = ""
   name = "restest_runner"
   output-type = "executable"
