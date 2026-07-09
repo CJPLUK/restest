@@ -10,7 +10,6 @@
 
 [dependencies]
   restest_common = { path = "../restest_common", output-type = "static" }
-  toml4cj = { git = "https://gitcode.com/Cangjie-TPC/toml4cj.git", output-type = "static" }
   __RESTEST_TARGET_PACKAGE_NAME__ = { path = "__RESTEST_TARGET_PACKAGE_PATH__", output-type = "static" }
 
 [package.package-configuration."restest_runner.deps"]
