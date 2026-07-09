@@ -56,6 +56,7 @@ RESTEST_SEED="${CLI_SEED:-${RESTEST_SEED:-0}}"
 
 export LD_LIBRARY_PATH="${ROOT}/restest_common/target/release/restest_common:/home/james/cangjie-sdk-linux-x64-28Feb2026-EH-beta/lib/linux_x86_64_cjnative:$HOME/.cjpm/libs/restest_apidiff:${LD_LIBRARY_PATH:-}"
 export RESTEST_ROOT="${ROOT}"
+cd $RESTEST_ROOT
 
 run_runner() {
     local runner_dir="$1"
